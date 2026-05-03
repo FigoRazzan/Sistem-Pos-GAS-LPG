@@ -1,0 +1,116 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model failed_jobs {
+  id         BigInt   @id @default(autoincrement())
+  uuid       String   @unique(map: "failed_jobs_uuid_unique") @db.VarChar(255)
+  connection String
+  queue      String
+  payload    String
+  exception  String
+  failed_at  DateTime @default(now()) @db.Timestamp(0)
+}
+
+model migrations {
+  id        Int    @id @default(autoincrement())
+  migration String @db.VarChar(255)
+  batch     Int
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model password_resets {
+  email      String    @db.VarChar(255)
+  token      String    @db.VarChar(255)
+  created_at DateTime? @db.Timestamp(0)
+
+  @@index([email], map: "password_resets_email_index")
+  @@ignore
+}
+
+model personal_access_tokens {
+  id             BigInt    @id @default(autoincrement())
+  tokenable_type String    @db.VarChar(255)
+  tokenable_id   BigInt
+  name           String    @db.VarChar(255)
+  token          String    @unique(map: "personal_access_tokens_token_unique") @db.VarChar(64)
+  abilities      String?
+  last_used_at   DateTime? @db.Timestamp(0)
+  expires_at     DateTime? @db.Timestamp(0)
+  created_at     DateTime? @db.Timestamp(0)
+  updated_at     DateTime? @db.Timestamp(0)
+
+  @@index([tokenable_type, tokenable_id], map: "personal_access_tokens_tokenable_type_tokenable_id_index")
+}
+
+model products {
+  id            BigInt         @id @default(autoincrement())
+  namaProduk    String         @db.VarChar(255)
+  hargaProduk   Int
+  stokProduk    Int
+  jenisProduk   Int
+  produkTerjual Int
+  user_id       BigInt
+  created_at    DateTime?      @db.Timestamp(0)
+  updated_at    DateTime?      @db.Timestamp(0)
+  users         users          @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "products_user_id_foreign")
+  ratings       ratings[]
+  transactions  transactions[]
+}
+
+model ratings {
+  id             BigInt       @id @default(autoincrement())
+  ulasan         String       @db.VarChar(255)
+  rating         Int
+  tanggal        DateTime     @db.Timestamp(0)
+  agen_id        BigInt
+  product_id     BigInt
+  transaction_id BigInt
+  created_at     DateTime?    @db.Timestamp(0)
+  updated_at     DateTime?    @db.Timestamp(0)
+  users          users        @relation(fields: [agen_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "ratings_agen_id_foreign")
+  products       products     @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "ratings_product_id_foreign")
+  transactions   transactions @relation(fields: [transaction_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "ratings_transaction_id_foreign")
+}
+
+model transactions {
+  id               BigInt    @id @default(autoincrement())
+  deskripsi        String?   @db.VarChar(255)
+  alamatTujuan     String    @db.VarChar(255)
+  buktiPembayaran  String    @db.VarChar(255)
+  tanggalTransaksi DateTime  @db.Timestamp(0)
+  stokPemesanan    Int
+  statusPemesanan  Int
+  metodePembayaran Int
+  totalPembayaran  Int
+  agen_id          BigInt
+  product_id       BigInt
+  created_at       DateTime? @db.Timestamp(0)
+  updated_at       DateTime? @db.Timestamp(0)
+  ratings          ratings[]
+  users            users     @relation(fields: [agen_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "transactions_agen_id_foreign")
+  products         products  @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "transactions_product_id_foreign")
+}
+
+model users {
+  id                BigInt         @id @default(autoincrement())
+  fullname          String         @db.VarChar(255)
+  email             String         @unique(map: "users_email_unique") @db.VarChar(255)
+  alamat            String         @db.VarChar(1000)
+  nomorTelepon      String         @db.VarChar(255)
+  status            Int            @db.SmallInt
+  gender            Int            @db.SmallInt
+  profil            String?        @db.VarChar(255)
+  email_verified_at DateTime?      @db.Timestamp(0)
+  password          String         @db.VarChar(255)
+  remember_token    String?        @db.VarChar(100)
+  created_at        DateTime?      @db.Timestamp(0)
+  updated_at        DateTime?      @db.Timestamp(0)
+  products          products[]
+  ratings           ratings[]
+  transactions      transactions[]
+}
