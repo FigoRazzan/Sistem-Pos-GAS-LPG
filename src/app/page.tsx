@@ -112,8 +112,11 @@ export default async function Home() {
                   <span className="block text-sm text-slate-400 mb-1">Harga Spesial</span>
                   <span className="block text-3xl font-bold text-white">
                     {hargaProduk > 0 ? formatRupiah(hargaProduk) : '-'}
-                    <span className="text-sm font-normal text-slate-500 ml-2">/ 25 Unit</span>
+                    <span className="text-sm font-normal text-slate-500 ml-2">/ item</span>
                   </span>
+                  {hargaProduk > 0 && (
+                    <span className="block text-xs text-amber-400 mt-1">Min. order 25 item</span>
+                  )}
                 </div>
 
                 {hargaProduk > 0 && (
