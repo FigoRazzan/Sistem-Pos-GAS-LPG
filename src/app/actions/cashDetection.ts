@@ -202,3 +202,33 @@ export async function updateCashDetectionStatus(detectionId: string, statusDetek
   revalidatePath("/dashboard/transactions");
   return { success: true, message: "Status deteksi diperbarui" };
 }
+
+export async function deleteCashDetection(detectionId: string) {
+  const session = await getServerSession(authOptions);
+  if (!session || Number(session.user.role) !== 1) {
+    return { error: "Akses ditolak" };
+  }
+
+  const detection = await prisma.cash_detections.findUnique({
+    where: { id: BigInt(detectionId) },
+  });
+
+  if (!detection) return { error: "Data tidak ditemukan" };
+  if (detection.user_id.toString() !== session.user.id) {
+    return { error: "Bukan data milik Anda" };
+  }
+
+  // Hapus file foto dari disk
+  try {
+    const filePath = path.join(process.cwd(), "public/deteksi_uang_palsu", detection.gambarDeteksi);
+    const { unlink } = await import("fs/promises");
+    await unlink(filePath);
+  } catch {
+    // File mungkin sudah tidak ada, lanjut saja
+  }
+
+  await prisma.cash_detections.delete({ where: { id: BigInt(detectionId) } });
+
+  revalidatePath("/dashboard/deteksi-uang-palsu");
+  return { success: true };
+}

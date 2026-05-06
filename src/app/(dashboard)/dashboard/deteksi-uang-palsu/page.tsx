@@ -2,29 +2,26 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import DeteksiUangForm from "./DeteksiUangForm";
+import DeleteDeteksiButton from "./DeleteDeteksiButton";
+
+const PER_PAGE = 10;
 
 const getMetodeLabel = (metode: number) => {
   switch (metode) {
-    case 1:
-      return "Kamera";
-    case 2:
-      return "Upload Foto";
-    default:
-      return "Unknown";
+    case 1: return "Kamera";
+    case 2: return "Upload Foto";
+    default: return "Unknown";
   }
 };
 
 const getStatusBadge = (status: number) => {
   switch (status) {
-    case 0:
-      return <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-bold">⏳ Menunggu</span>;
-    case 1:
-      return <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">✅ Asli</span>;
-    case 2:
-      return <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold">🚨 Palsu</span>;
-    default:
-      return <span className="px-2 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-bold">Unknown</span>;
+    case 0: return <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-bold">⏳ Menunggu</span>;
+    case 1: return <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">✅ Asli</span>;
+    case 2: return <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold">🚨 Palsu</span>;
+    default: return <span className="px-2 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-bold">Unknown</span>;
   }
 };
 
@@ -35,17 +32,8 @@ const getConfidenceBadge = (status: number, skor: number | null, catatan: string
 
   const pct = skor;
   const label = catatan || "";
-
-  // Color based on status
-  const barColor =
-    status === 2 ? "bg-red-500"
-    : status === 1 ? "bg-emerald-500"
-    : "bg-amber-400";
-
-  const textColor =
-    status === 2 ? "text-red-600"
-    : status === 1 ? "text-emerald-600"
-    : "text-amber-600";
+  const barColor = status === 2 ? "bg-red-500" : status === 1 ? "bg-emerald-500" : "bg-amber-400";
+  const textColor = status === 2 ? "text-red-600" : status === 1 ? "text-emerald-600" : "text-amber-600";
 
   return (
     <div className="min-w-[120px]">
@@ -56,10 +44,7 @@ const getConfidenceBadge = (status: number, skor: number | null, catatan: string
         )}
       </div>
       <div className="w-full bg-slate-100 rounded-full h-1.5">
-        <div
-          className={`${barColor} h-1.5 rounded-full transition-all`}
-          style={{ width: `${Math.min(pct, 100)}%` }}
-        />
+        <div className={`${barColor} h-1.5 rounded-full transition-all`} style={{ width: `${Math.min(pct, 100)}%` }} />
       </div>
     </div>
   );
@@ -68,7 +53,7 @@ const getConfidenceBadge = (status: number, skor: number | null, catatan: string
 export default async function DeteksiUangPalsuPage({
   searchParams,
 }: {
-  searchParams: Promise<{ transactionId?: string }>;
+  searchParams: Promise<{ transactionId?: string; page?: string }>;
 }) {
   const session = await getServerSession(authOptions);
   if (!session || Number(session.user.role) !== 1) {
@@ -77,25 +62,48 @@ export default async function DeteksiUangPalsuPage({
 
   const resolvedParams = await searchParams;
   const transactionId = resolvedParams?.transactionId;
+  const currentPage = Math.max(1, parseInt(resolvedParams?.page || "1"));
+
+  const totalCount = await prisma.cash_detections.count({
+    where: { user_id: BigInt(session.user.id) },
+  });
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages);
 
   const detections = await prisma.cash_detections.findMany({
     where: { user_id: BigInt(session.user.id) },
     include: { transactions: { include: { users: true, products: true } } },
     orderBy: { created_at: "desc" },
+    skip: (safePage - 1) * PER_PAGE,
+    take: PER_PAGE,
   });
+
+  const buildPageUrl = (page: number) => {
+    const params = new URLSearchParams();
+    if (transactionId) params.set("transactionId", transactionId);
+    params.set("page", page.toString());
+    return `?${params.toString()}`;
+  };
 
   return (
     <div className="space-y-6">
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
         <h1 className="text-2xl font-bold text-slate-800">Deteksi Uang Palsu</h1>
         <p className="text-slate-500 text-sm mt-1">
-          Upload foto uang — AI akan otomatis menganalisis dan menampilkan tingkat keyakinan (confidence) apakah uang tersebut asli atau palsu.
+          Upload foto uang — AI akan otomatis menganalisis dan menampilkan tingkat keyakinan apakah uang tersebut asli atau palsu.
         </p>
       </div>
 
       <DeteksiUangForm transactionId={transactionId} />
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        {/* Table header with count */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <h2 className="font-semibold text-slate-700">Riwayat Deteksi</h2>
+          <span className="text-xs text-slate-400">{totalCount} total data</span>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -106,12 +114,13 @@ export default async function DeteksiUangPalsuPage({
                 <th className="p-4 font-semibold">Status AI</th>
                 <th className="p-4 font-semibold">Confidence AI</th>
                 <th className="p-4 font-semibold">Foto</th>
+                <th className="p-4 font-semibold text-center">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {detections.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-500">Belum ada data deteksi</td>
+                  <td colSpan={7} className="p-8 text-center text-slate-500">Belum ada data deteksi</td>
                 </tr>
               ) : (
                 detections.map((d) => (
@@ -137,12 +146,66 @@ export default async function DeteksiUangPalsuPage({
                         className="w-16 h-16 object-cover rounded-lg border border-slate-200"
                       />
                     </td>
+                    <td className="p-4 text-center">
+                      <DeleteDeteksiButton detectionId={d.id.toString()} />
+                    </td>
                   </tr>
                 ))
               )}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100">
+            <span className="text-sm text-slate-500">
+              Halaman {safePage} dari {totalPages}
+            </span>
+            <div className="flex gap-2">
+              {safePage > 1 && (
+                <Link
+                  href={buildPageUrl(safePage - 1)}
+                  className="px-3 py-1.5 text-sm font-medium border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-600 transition-colors"
+                >
+                  ← Sebelumnya
+                </Link>
+              )}
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
+                .reduce<(number | "...")[]>((acc, p, i, arr) => {
+                  if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push("...");
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, i) =>
+                  p === "..." ? (
+                    <span key={`ellipsis-${i}`} className="px-3 py-1.5 text-sm text-slate-400">…</span>
+                  ) : (
+                    <Link
+                      key={p}
+                      href={buildPageUrl(p as number)}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                        p === safePage
+                          ? "bg-teal-500 text-white"
+                          : "border border-slate-200 hover:bg-slate-50 text-slate-600"
+                      }`}
+                    >
+                      {p}
+                    </Link>
+                  )
+                )}
+              {safePage < totalPages && (
+                <Link
+                  href={buildPageUrl(safePage + 1)}
+                  className="px-3 py-1.5 text-sm font-medium border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-600 transition-colors"
+                >
+                  Selanjutnya →
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
