@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { uploadBuktiPembayaran } from "@/app/actions/transaction";
+import { useToast } from "@/components/ToastProvider";
 
 export default function UploadBuktiModal({ transactionId, isReupload = false }: { transactionId: string, isReupload?: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
+  const toast = useToast();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -26,10 +28,10 @@ export default function UploadBuktiModal({ transactionId, isReupload = false }: 
     const result = await uploadBuktiPembayaran(transactionId, formData);
     
     if (result.success) {
-      alert(result.message);
+      toast.success(result.message || "Bukti berhasil diunggah!");
       setIsOpen(false);
     } else {
-      alert(result.error);
+      toast.error(result.error || "Gagal mengunggah bukti");
     }
     setLoading(false);
   };

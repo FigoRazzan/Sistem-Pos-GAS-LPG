@@ -1,11 +1,13 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import Image from "next/image";
 import UploadBuktiModal from "./UploadBuktiModal";
 import ValidasiPembayaranButton from "./ValidasiPembayaranButton";
 import BeriUlasanModal from "./BeriUlasanModal";
 import DownloadPDFButton from "./DownloadPDFButton";
+import DownloadFakturPajakButton from "./DownloadFakturPajakButton";
+import MidtransPayButton from "./MidtransPayButton";
+import Link from "next/link";
 
 const formatRupiah = (angka: number) => {
   return new Intl.NumberFormat('id-ID', {
@@ -17,14 +19,25 @@ const formatRupiah = (angka: number) => {
 
 const getStatusBadge = (status: number) => {
   switch (status) {
-    case 0: return <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold">Bukti Tidak Valid</span>;
+    case 0: return <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold">Pembayaran Tidak Valid</span>;
     case 1: return <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-bold">Menunggu Upload</span>;
     case 2: return <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">Menunggu Validasi</span>;
     case 3: return <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-bold">Siap Kirim</span>;
     case 4: return <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-bold">Proses Pengiriman</span>;
     case 5: return <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">Telah Diterima</span>;
     case 6: return <span className="px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-bold">Selesai</span>;
+    case 7: return <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold">Menunggu Pembayaran</span>;
+    case 8: return <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-bold">Menunggu Deteksi Uang</span>;
     default: return <span className="px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-bold">Unknown</span>;
+  }
+};
+
+const getMetodeLabel = (metode: number) => {
+  switch (metode) {
+    case 1: return "Transfer Manual";
+    case 2: return "Bayar di Tempat";
+    case 3: return "Midtrans";
+    default: return "Unknown";
   }
 };
 
@@ -55,16 +68,20 @@ export default async function TransactionsPage() {
 
   const getStatusText = (status: number) => {
     switch (status) {
-      case 0: return "Bukti Tidak Valid";
+      case 0: return "Pembayaran Tidak Valid";
       case 1: return "Menunggu Upload";
       case 2: return "Menunggu Validasi";
       case 3: return "Siap Kirim";
       case 4: return "Proses Pengiriman";
       case 5: return "Telah Diterima";
       case 6: return "Selesai";
+      case 7: return "Menunggu Pembayaran";
+      case 8: return "Menunggu Deteksi Uang";
       default: return "Unknown";
     }
   };
+
+  const pajakRate = 11;
 
   return (
     <div className="space-y-6">
@@ -84,6 +101,7 @@ export default async function TransactionsPage() {
                 <th className="p-4 font-semibold">Produk</th>
                 <th className="p-4 font-semibold">{role === 1 ? "Agen Pemesan" : "Supplier"}</th>
                 <th className="p-4 font-semibold">Total Pembayaran</th>
+                <th className="p-4 font-semibold">Metode</th>
                 <th className="p-4 font-semibold">Status</th>
                 <th className="p-4 font-semibold text-center">Aksi</th>
               </tr>
@@ -91,11 +109,19 @@ export default async function TransactionsPage() {
             <tbody className="divide-y divide-slate-100">
               {transactions.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-500">Belum ada transaksi</td>
+                  <td colSpan={7} className="p-8 text-center text-slate-500">Belum ada transaksi</td>
                 </tr>
               ) : (
-                transactions.map((t) => (
-                  <tr key={t.id.toString()} className="hover:bg-slate-50 transition-colors">
+                transactions.map((t) => {
+                  const isTransfer = t.metodePembayaran === 1;
+                  const isCash = t.metodePembayaran === 2;
+                  const isMidtrans = t.metodePembayaran === 3;
+                  const subtotal = t.subtotalPembayaran ?? t.totalPembayaran;
+                  const pajak = t.pajakPembayaran ?? Math.round((subtotal * pajakRate) / 100);
+                  const totalValue = t.subtotalPembayaran ? t.totalPembayaran : subtotal + pajak;
+
+                  return (
+                    <tr key={t.id.toString()} className="hover:bg-slate-50 transition-colors">
                     <td className="p-4 text-sm font-medium text-slate-700">#{t.id.toString()}</td>
                     <td className="p-4">
                       <div className="font-semibold text-slate-800">{t.products?.namaProduk}</div>
@@ -105,7 +131,10 @@ export default async function TransactionsPage() {
                       {role === 1 ? t.users?.fullname : t.products?.users?.fullname}
                     </td>
                     <td className="p-4 font-bold text-teal-600">
-                      {formatRupiah(t.totalPembayaran)}
+                      {formatRupiah(totalValue)}
+                    </td>
+                    <td className="p-4 text-sm text-slate-600">
+                      {getMetodeLabel(t.metodePembayaran)}
                     </td>
                     <td className="p-4">
                       {getStatusBadge(t.statusPemesanan)}
@@ -120,14 +149,33 @@ export default async function TransactionsPage() {
                             produk: t.products?.namaProduk || "",
                             supplier: (role === 1 ? session.user.name : t.products?.users?.fullname) || "",
                             agen: (role === 1 ? t.users?.fullname : session.user.name) || "",
-                            total: formatRupiah(t.totalPembayaran),
+                            subtotal,
+                            pajak,
+                            total: totalValue,
+                            status: getStatusText(t.statusPemesanan)
+                          }} />
+                        )}
+
+                        {t.statusPemesanan >= 3 && (
+                          <DownloadFakturPajakButton data={{
+                            id: t.id.toString(),
+                            tanggal: new Date(t.tanggalTransaksi).toLocaleDateString('id-ID'),
+                            supplier: (role === 1 ? session.user.name : t.products?.users?.fullname) || "",
+                            agen: (role === 1 ? t.users?.fullname : session.user.name) || "",
+                            subtotal,
+                            pajak,
+                            total: totalValue,
                             status: getStatusText(t.statusPemesanan)
                           }} />
                         )}
 
                         {/* AGEN ACTIONS */}
-                        {role === 2 && (t.statusPemesanan === 1 || t.statusPemesanan === 0) && (
+                        {role === 2 && isTransfer && (t.statusPemesanan === 1 || t.statusPemesanan === 0) && (
                           <UploadBuktiModal transactionId={t.id.toString()} isReupload={t.statusPemesanan === 0} />
+                        )}
+
+                        {role === 2 && isMidtrans && (t.statusPemesanan === 7 || t.statusPemesanan === 0) && (
+                          <MidtransPayButton transactionId={t.id.toString()} />
                         )}
 
                         {/* RATING ACTION (Agen only, status >= 5, no rating yet) */}
@@ -136,11 +184,20 @@ export default async function TransactionsPage() {
                         )}
                         
                         {/* SUPPLIER ACTIONS */}
-                        {role === 1 && t.statusPemesanan === 2 && (
+                        {role === 1 && isTransfer && t.statusPemesanan === 2 && (
                           <ValidasiPembayaranButton 
                             transactionId={t.id.toString()} 
                             buktiUrl={`/bukti_pembayaran/${t.buktiPembayaran}`} 
                           />
+                        )}
+
+                        {role === 1 && isCash && t.statusPemesanan === 8 && (
+                          <Link
+                            href={`/dashboard/deteksi-uang-palsu?transactionId=${t.id.toString()}`}
+                            className="px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold rounded-lg shadow-sm transition-colors"
+                          >
+                            Deteksi Uang
+                          </Link>
                         )}
                         
                         {/* VIEW RATING IF EXISTS */}
@@ -152,8 +209,9 @@ export default async function TransactionsPage() {
                         )}
                       </div>
                     </td>
-                  </tr>
-                ))
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

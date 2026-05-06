@@ -49,6 +49,10 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     where: { id: BigInt(session.user.id) }
   });
 
+  const subtotalPembayaran = product.hargaProduk * 25;
+  const pajakPembayaran = Math.round((subtotalPembayaran * 11) / 100);
+  const totalPembayaran = subtotalPembayaran + pajakPembayaran;
+
   return (
     <div className="min-h-screen bg-slate-50 py-12">
       <div className="max-w-5xl mx-auto px-6">
@@ -84,8 +88,18 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
             </div>
 
             <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 mb-8">
-              <p className="text-sm text-slate-500 mb-1">Total Pembayaran (Paket 25 Unit)</p>
-              <p className="text-4xl font-black text-teal-600">{formatRupiah(product.hargaProduk * 25)}</p>
+              <p className="text-sm text-slate-500 mb-1">Total Pembayaran (Termasuk PPN 11%)</p>
+              <p className="text-4xl font-black text-teal-600">{formatRupiah(totalPembayaran)}</p>
+              <div className="mt-4 text-sm text-slate-500 space-y-1">
+                <div className="flex justify-between">
+                  <span>Subtotal (DPP)</span>
+                  <span className="font-semibold text-slate-700">{formatRupiah(subtotalPembayaran)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>PPN 11%</span>
+                  <span className="font-semibold text-slate-700">{formatRupiah(pajakPembayaran)}</span>
+                </div>
+              </div>
             </div>
 
             <div className="border-t border-slate-100 pt-8">

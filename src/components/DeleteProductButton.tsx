@@ -2,17 +2,29 @@
 
 import { useState } from "react";
 import { deleteProduct } from "@/app/actions/product";
+import { useToast } from "@/components/ToastProvider";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 export default function DeleteProductButton({ productId }: { productId: string }) {
   const [loading, setLoading] = useState(false);
+  const toast = useToast();
+  const confirm = useConfirm();
 
   const handleDelete = async () => {
-    if (!confirm("Apakah Anda yakin ingin menghapus produk ini?")) return;
+    const ok = await confirm({
+      title: "Hapus Produk",
+      message: "Apakah Anda yakin ingin menghapus produk ini? Tindakan ini tidak dapat dibatalkan.",
+      confirmLabel: "Ya, Hapus",
+      variant: "danger",
+    });
+    if (!ok) return;
     
     setLoading(true);
     const result = await deleteProduct(productId);
-    if (!result.success) {
-      alert(result.error);
+    if (result.success) {
+      toast.success(result.message || "Produk berhasil dihapus!");
+    } else {
+      toast.error(result.error || "Gagal menghapus produk");
     }
     setLoading(false);
   };

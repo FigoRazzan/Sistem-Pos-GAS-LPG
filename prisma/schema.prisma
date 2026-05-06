@@ -87,13 +87,41 @@ model transactions {
   statusPemesanan  Int
   metodePembayaran Int
   totalPembayaran  Int
+  subtotalPembayaran Int?
+  pajakPembayaran    Int?
+  midtransOrderId        String?  @db.VarChar(255)
+  midtransToken          String?  @db.VarChar(255)
+  midtransRedirectUrl    String?  @db.VarChar(255)
+  midtransStatus         String?  @db.VarChar(50)
+  midtransPaymentType    String?  @db.VarChar(50)
+  midtransTransactionId  String?  @db.VarChar(50)
+  midtransFraudStatus    String?  @db.VarChar(50)
   agen_id          BigInt
   product_id       BigInt
   created_at       DateTime? @db.Timestamp(0)
   updated_at       DateTime? @db.Timestamp(0)
   ratings          ratings[]
+  cash_detections  cash_detections[]
   users            users     @relation(fields: [agen_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "transactions_agen_id_foreign")
   products         products  @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "transactions_product_id_foreign")
+}
+
+model cash_detections {
+  id             BigInt    @id @default(autoincrement())
+  transaction_id BigInt?
+  user_id        BigInt
+  metodeDeteksi  Int
+  statusDeteksi  Int
+  skorDeteksi    Int?
+  gambarDeteksi  String    @db.VarChar(255)
+  catatan        String?   @db.VarChar(255)
+  created_at     DateTime? @db.Timestamp(0)
+  updated_at     DateTime? @db.Timestamp(0)
+  transactions   transactions? @relation(fields: [transaction_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "cash_detections_transaction_id_foreign")
+  users          users         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "cash_detections_user_id_foreign")
+
+  @@index([transaction_id], map: "cash_detections_transaction_id_index")
+  @@index([user_id], map: "cash_detections_user_id_index")
 }
 
 model users {
@@ -113,4 +141,5 @@ model users {
   products          products[]
   ratings           ratings[]
   transactions      transactions[]
+  cash_detections   cash_detections[]
 }

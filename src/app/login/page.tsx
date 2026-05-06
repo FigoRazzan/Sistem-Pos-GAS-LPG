@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { registerUser } from "@/app/actions/auth";
@@ -65,6 +66,17 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-slate-900 bg-[url('/asset-img/gas3kg.jpg')] bg-cover bg-center bg-blend-overlay">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden p-8 relative z-10 m-4">
         
+        {/* Back to Homepage */}
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-teal-600 transition-colors mb-4 group"
+        >
+          <svg className="w-4 h-4 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Kembali ke Beranda
+        </Link>
+
         {/* Logo */}
         <div className="flex justify-center mb-6">
           <div className="w-20 h-20 relative bg-slate-100 rounded-full border-4 border-white shadow-lg flex items-center justify-center overflow-hidden">

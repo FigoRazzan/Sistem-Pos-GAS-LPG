@@ -2,22 +2,34 @@
 
 import { useState } from "react";
 import { updateTransactionStatus } from "@/app/actions/transaction";
+import { useToast } from "@/components/ToastProvider";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 export default function ValidasiPembayaranButton({ transactionId, buktiUrl }: { transactionId: string, buktiUrl: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const toast = useToast();
+  const confirm = useConfirm();
 
   const handleValidasi = async (status: number) => {
-    const isConfirm = confirm(status === 3 ? "Tandai pembayaran valid?" : "Tolak pembayaran ini?");
-    if (!isConfirm) return;
+    const isValid = status === 3;
+    const ok = await confirm({
+      title: isValid ? "Terima Pembayaran" : "Tolak Pembayaran",
+      message: isValid
+        ? "Tandai pembayaran ini sebagai valid? Pesanan akan masuk ke status Siap Kirim."
+        : "Tolak pembayaran ini? Status pesanan akan berubah ke Tidak Valid.",
+      confirmLabel: isValid ? "Ya, Terima" : "Ya, Tolak",
+      variant: isValid ? "default" : "danger",
+    });
+    if (!ok) return;
 
     setLoading(true);
     const result = await updateTransactionStatus(transactionId, status);
     if (result.success) {
-      alert(result.message);
+      toast.success(result.message || "Status berhasil diperbarui");
       setIsOpen(false);
     } else {
-      alert(result.error);
+      toast.error(result.error || "Gagal memperbarui status");
     }
     setLoading(false);
   };

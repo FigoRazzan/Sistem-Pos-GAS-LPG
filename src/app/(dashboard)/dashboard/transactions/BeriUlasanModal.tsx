@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { submitRating } from "@/app/actions/rating";
+import { useToast } from "@/components/ToastProvider";
 
 export default function BeriUlasanModal({ transactionId }: { transactionId: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [rating, setRating] = useState(5);
+  const toast = useToast();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -18,10 +20,10 @@ export default function BeriUlasanModal({ transactionId }: { transactionId: stri
     const result = await submitRating(formData);
     
     if (result.success) {
-      alert(result.message);
+      toast.success(result.message || "Ulasan berhasil dikirim!");
       setIsOpen(false);
     } else {
-      alert(result.error);
+      toast.error(result.error || "Gagal mengirim ulasan");
     }
     setLoading(false);
   };

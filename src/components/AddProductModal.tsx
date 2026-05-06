@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { createProduct } from "@/app/actions/product";
+import { useToast } from "@/components/ToastProvider";
 
 export default function AddProductModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const toast = useToast();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -14,9 +16,10 @@ export default function AddProductModal() {
     const result = await createProduct(formData);
     
     if (result.success) {
+      toast.success(result.message || "Produk berhasil ditambahkan!");
       setIsOpen(false);
     } else {
-      alert(result.error);
+      toast.error(result.error || "Gagal menambahkan produk");
     }
     setLoading(false);
   };

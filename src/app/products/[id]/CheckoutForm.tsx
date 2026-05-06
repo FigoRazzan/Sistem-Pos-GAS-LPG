@@ -2,48 +2,110 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createTransaction } from "@/app/actions/transaction";
+import Script from "next/script";
+import { createTransaction, syncMidtransStatus } from "@/app/actions/transaction";
+import { useToast } from "@/components/ToastProvider";
+import { useConfirm } from "@/components/ConfirmDialog";
+
+const PAYMENT_METHOD = {
+  TRANSFER: 1,
+  CASH: 2,
+  MIDTRANS: 3,
+};
 
 export default function CheckoutForm({ productId }: { productId: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [metode, setMetode] = useState(1);
+  const toast = useToast();
+  const confirm = useConfirm();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!confirm("Apakah Anda yakin ingin memesan gas ini?")) return;
+    const form = e.currentTarget; // capture before await — React nullifies currentTarget after async
+    const ok = await confirm({
+      title: "Konfirmasi Pesanan",
+      message: "Apakah Anda yakin ingin memesan gas ini?",
+      confirmLabel: "Ya, Pesan Sekarang",
+    });
+    if (!ok) return;
     
     setLoading(true);
-    const formData = new FormData(e.currentTarget);
+    const formData = new FormData(form);
     formData.append("product_id", productId);
     
     const result = await createTransaction(formData);
     
     if (result.success) {
-      alert(result.message);
-      router.push("/dashboard/transactions");
+      if (result.payment?.type === "midtrans" && result.payment.token && result.transactionId) {
+        if (typeof window !== "undefined" && (window as any).snap) {
+          (window as any).snap.pay(result.payment.token, {
+            onSuccess: async () => {
+              await syncMidtransStatus(result.transactionId);
+              toast.success("Pembayaran berhasil! Pesanan akan segera diproses.");
+              router.push("/dashboard/transactions");
+            },
+            onPending: async () => {
+              await syncMidtransStatus(result.transactionId);
+              toast.info("Pembayaran pending. Silakan selesaikan pembayaran.");
+              router.push("/dashboard/transactions");
+            },
+            onError: () => {
+              toast.error("Pembayaran gagal. Silakan coba lagi.");
+              router.push("/dashboard/transactions");
+            },
+            onClose: () => {
+              toast.warning("Pembayaran belum selesai. Kamu bisa lanjutkan dari menu transaksi.");
+              router.push("/dashboard/transactions");
+            },
+          });
+        } else {
+          toast.error("Snap Midtrans belum siap. Coba refresh halaman.");
+        }
+      } else {
+        toast.success(result.message || "Pesanan berhasil dibuat!");
+        router.push("/dashboard/transactions");
+      }
     } else {
-      alert(result.error);
+      toast.error(result.error || "Gagal membuat pesanan");
     }
     setLoading(false);
   };
 
+
+  const isProduction = process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === "true";
+  const snapSrc = isProduction
+    ? "https://app.midtrans.com/snap/snap.js"
+    : "https://app.sandbox.midtrans.com/snap/snap.js";
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      <Script
+        src={snapSrc}
+        data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
+        strategy="afterInteractive"
+      />
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-3">Metode Pembayaran</label>
-        <div className="grid grid-cols-2 gap-4">
-          <label className={`cursor-pointer border rounded-xl p-4 flex items-center gap-3 transition-all ${metode === 1 ? 'border-teal-500 bg-teal-50 ring-2 ring-teal-200' : 'border-slate-200 hover:border-teal-300'}`}>
-            <input type="radio" name="metodePembayaran" value="1" checked={metode === 1} onChange={() => setMetode(1)} className="hidden" />
-            <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${metode === 1 ? 'border-teal-500 bg-teal-500' : 'border-slate-300'}`}>
-              {metode === 1 && <div className="w-2 h-2 bg-white rounded-full"></div>}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <label className={`cursor-pointer border rounded-xl p-4 flex items-center gap-3 transition-all ${metode === PAYMENT_METHOD.TRANSFER ? 'border-teal-500 bg-teal-50 ring-2 ring-teal-200' : 'border-slate-200 hover:border-teal-300'}`}>
+            <input type="radio" name="metodePembayaran" value={PAYMENT_METHOD.TRANSFER} checked={metode === PAYMENT_METHOD.TRANSFER} onChange={() => setMetode(PAYMENT_METHOD.TRANSFER)} className="hidden" />
+            <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${metode === PAYMENT_METHOD.TRANSFER ? 'border-teal-500 bg-teal-500' : 'border-slate-300'}`}>
+              {metode === PAYMENT_METHOD.TRANSFER && <div className="w-2 h-2 bg-white rounded-full"></div>}
             </div>
-            <span className="font-semibold text-slate-800">Transfer Bank</span>
+            <span className="font-semibold text-slate-800">Transfer Manual</span>
           </label>
-          <label className={`cursor-pointer border rounded-xl p-4 flex items-center gap-3 transition-all ${metode === 2 ? 'border-teal-500 bg-teal-50 ring-2 ring-teal-200' : 'border-slate-200 hover:border-teal-300'}`}>
-            <input type="radio" name="metodePembayaran" value="2" checked={metode === 2} onChange={() => setMetode(2)} className="hidden" />
-            <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${metode === 2 ? 'border-teal-500 bg-teal-500' : 'border-slate-300'}`}>
-              {metode === 2 && <div className="w-2 h-2 bg-white rounded-full"></div>}
+          <label className={`cursor-pointer border rounded-xl p-4 flex items-center gap-3 transition-all ${metode === PAYMENT_METHOD.MIDTRANS ? 'border-teal-500 bg-teal-50 ring-2 ring-teal-200' : 'border-slate-200 hover:border-teal-300'}`}>
+            <input type="radio" name="metodePembayaran" value={PAYMENT_METHOD.MIDTRANS} checked={metode === PAYMENT_METHOD.MIDTRANS} onChange={() => setMetode(PAYMENT_METHOD.MIDTRANS)} className="hidden" />
+            <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${metode === PAYMENT_METHOD.MIDTRANS ? 'border-teal-500 bg-teal-500' : 'border-slate-300'}`}>
+              {metode === PAYMENT_METHOD.MIDTRANS && <div className="w-2 h-2 bg-white rounded-full"></div>}
+            </div>
+            <span className="font-semibold text-slate-800">Midtrans</span>
+          </label>
+          <label className={`cursor-pointer border rounded-xl p-4 flex items-center gap-3 transition-all ${metode === PAYMENT_METHOD.CASH ? 'border-teal-500 bg-teal-50 ring-2 ring-teal-200' : 'border-slate-200 hover:border-teal-300'}`}>
+            <input type="radio" name="metodePembayaran" value={PAYMENT_METHOD.CASH} checked={metode === PAYMENT_METHOD.CASH} onChange={() => setMetode(PAYMENT_METHOD.CASH)} className="hidden" />
+            <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${metode === PAYMENT_METHOD.CASH ? 'border-teal-500 bg-teal-500' : 'border-slate-300'}`}>
+              {metode === PAYMENT_METHOD.CASH && <div className="w-2 h-2 bg-white rounded-full"></div>}
             </div>
             <span className="font-semibold text-slate-800">Bayar di Tempat</span>
           </label>

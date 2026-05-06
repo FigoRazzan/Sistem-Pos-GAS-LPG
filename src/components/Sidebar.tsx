@@ -14,6 +14,8 @@ export default function Sidebar({ userRole }: { userRole: number }) {
   // Supplier only
   if (userRole === 1) {
     navItems.splice(1, 0, { name: "Produk Gas", href: "/dashboard/products", icon: "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" });
+    navItems.push({ name: "Laporan Pajak", href: "/dashboard/laporan-pajak", icon: "M9 12h6m-6 4h6m-5 4h4m2 2H8a2 2 0 01-2-2V6a2 2 0 012-2h6l4 4v12a2 2 0 01-2 2z" });
+    navItems.push({ name: "Deteksi Uang Palsu", href: "/dashboard/deteksi-uang-palsu", icon: "M12 8c-1.657 0-3 1.343-3 3v6a3 3 0 006 0v-6c0-1.657-1.343-3-3-3zm-7 3a7 7 0 0114 0v6a7 7 0 01-14 0v-6z" });
   } else if (userRole === 2) {
     navItems.push({ name: "Katalog Gas (Beli)", href: "/products", icon: "M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" });
   }

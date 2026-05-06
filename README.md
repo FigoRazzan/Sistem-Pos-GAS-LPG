@@ -10,6 +10,11 @@ Sistem Informasi Manajemen Pemesanan Gas LPG berbasis web (fullstack Next.js). A
 - Autentikasi NextAuth.
 - Ekspor PDF invoice transaksi.
 
+## Fitur Tambahan
+- Pembayaran via payment gateway Midtrans untuk Agen saat checkout.
+- Slip pajak otomatis dalam bentuk PDF (berdasarkan transaksi/pendapatan).
+- Deteksi uang palsu untuk pembayaran cash: opsi kamera atau upload foto, plus menu cek manual.
+
 ## Prasyarat
 - Node.js 20+ (atau 18.17+).
 - PostgreSQL.
@@ -27,10 +32,7 @@ cd Sistem-Pos-GAS-LPG/web-gas
 npm install
 ```
 
-3) Download file `.env` dan masukan ke root folder `web-gas`:
-```env
-ADA DI GRUP!
-```
+3) Minta file `.env` di grup, lalu taruh di root folder `web-gas`.
 
 4) Buat database kosong di PostgreSQL (contoh: `db_webgas`).
 
