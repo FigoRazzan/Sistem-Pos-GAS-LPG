@@ -100,8 +100,9 @@ export default async function PublicProductsPage({
                   <div className="mt-auto">
                     <div className="flex justify-between items-end mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
                       <div>
-                        <p className="text-xs text-slate-500 mb-1">Harga (per 25 unit)</p>
+                        <p className="text-xs text-slate-500 mb-1">Harga / item</p>
                         <p className="font-bold text-teal-600 text-2xl">{formatRupiah(product.hargaProduk)}</p>
+                        <p className="text-xs text-amber-600 mt-0.5">Min. order 25 item</p>
                       </div>
                       <div className="text-right">
                         <p className="text-xs text-slate-500 mb-1">Stok Tersedia</p>

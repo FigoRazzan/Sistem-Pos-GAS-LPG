@@ -88,17 +88,32 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
             </div>
 
             <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 mb-8">
-              <p className="text-sm text-slate-500 mb-1">Total Pembayaran (Termasuk PPN 11%)</p>
-              <p className="text-4xl font-black text-teal-600">{formatRupiah(totalPembayaran)}</p>
-              <div className="mt-4 text-sm text-slate-500 space-y-1">
+              <p className="text-sm font-semibold text-slate-600 mb-4">Rincian Pembayaran</p>
+
+              {/* Per-item breakdown */}
+              <div className="space-y-2 text-sm text-slate-600 pb-4 border-b border-slate-200 mb-4">
                 <div className="flex justify-between">
+                  <span>Harga / item</span>
+                  <span className="font-semibold text-slate-700">{formatRupiah(product.hargaProduk)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Jumlah (min. order)</span>
+                  <span className="font-semibold text-slate-700">25 item</span>
+                </div>
+                <div className="flex justify-between text-slate-800 font-semibold pt-1">
                   <span>Subtotal (DPP)</span>
-                  <span className="font-semibold text-slate-700">{formatRupiah(subtotalPembayaran)}</span>
+                  <span>{formatRupiah(subtotalPembayaran)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>PPN 11%</span>
                   <span className="font-semibold text-slate-700">{formatRupiah(pajakPembayaran)}</span>
                 </div>
+              </div>
+
+              {/* Total */}
+              <div className="flex justify-between items-center">
+                <p className="text-sm text-slate-500">Total Pembayaran</p>
+                <p className="text-3xl font-black text-teal-600">{formatRupiah(totalPembayaran)}</p>
               </div>
             </div>
 

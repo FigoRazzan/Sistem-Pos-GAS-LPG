@@ -52,7 +52,7 @@ export default function AddProductModal() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Harga (25 Unit)</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Harga / item</label>
                   <input type="number" name="hargaProduk" required className="w-full border border-slate-300 text-slate-900 placeholder:text-slate-400 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none" placeholder="0" />
                 </div>
                 <div>

@@ -73,8 +73,9 @@ export default async function ProductsPage() {
                   <h3 className="font-bold text-lg text-slate-800 mb-1">{product.namaProduk}</h3>
                   <div className="flex justify-between items-end mt-4">
                     <div>
-                      <p className="text-xs text-slate-500 mb-1">Harga per 25 unit</p>
+                      <p className="text-xs text-slate-500 mb-1">Harga / item</p>
                       <p className="font-bold text-teal-600 text-xl">{formatRupiah(product.hargaProduk)}</p>
+                      <p className="text-xs text-amber-600 mt-0.5">Min. order 25 item</p>
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-slate-500 mb-1">Stok Tersedia</p>
