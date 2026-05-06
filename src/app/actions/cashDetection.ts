@@ -20,6 +20,98 @@ const TRANSAKSI_STATUS = {
   MENUNGGU_DETEKSI_UANG: 8,
 };
 
+// ─── Background OCR Detection untuk Update Status Later ────────────────────
+async function performBackgroundOCRDetection(detectionId: bigint) {
+  try {
+    // Delay sedikit untuk memastikan file sudah siap
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    const detection = await prisma.cash_detections.findUnique({
+      where: { id: detectionId },
+    });
+
+    if (!detection) return;
+
+    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const ocrResponse = await axios.post(
+      `${baseUrl}/api/ocr-detect`,
+      { imagePath: detection.gambarDeteksi },
+      { timeout: 45000 }
+    );
+
+    if (ocrResponse.data?.success && ocrResponse.data?.isCounterfeit) {
+      console.log("Background OCR: Detected MAINAN pattern");
+      
+      // Update detection status to PALSU
+      await prisma.cash_detections.update({
+        where: { id: detectionId },
+        data: {
+          statusDeteksi: DETEKSI_STATUS.PALSU,
+          skorDeteksi: 95,
+          catatan: "Uang Mainan (Terdeteksi Text 'MAINAN' - OCR)",
+        },
+      });
+
+      // Update transaction status if exists
+      if (detection.transaction_id) {
+        await prisma.transactions.update({
+          where: { id: detection.transaction_id },
+          data: { statusPemesanan: TRANSAKSI_STATUS.PEMBAYARAN_TIDAK_VALID },
+        });
+      }
+
+      // Revalidate paths
+      revalidatePath("/dashboard/deteksi-uang-palsu");
+      revalidatePath("/dashboard/transactions");
+    }
+  } catch (error) {
+    console.error("Background OCR detection error:", error);
+    // Silently fail - tidak perlu block flow utama
+  }
+}
+
+// ─── Fast OCR Detection dengan timeout (Synchronous untuk initial response) ───
+async function performFastOCRDetection(fileName: string): Promise<boolean> {
+  try {
+    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    
+    // Create abort controller untuk timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000); // 25 second timeout (image preprocessing + OCR)
+
+    const ocrResponse = await axios.post(
+      `${baseUrl}/api/ocr-detect`,
+      { imagePath: fileName },
+      { 
+        timeout: 25000,
+        signal: controller.signal 
+      }
+    );
+
+    clearTimeout(timeoutId);
+
+    console.log("Fast OCR: Response received", {
+      success: ocrResponse.data?.success,
+      isCounterfeit: ocrResponse.data?.isCounterfeit,
+      detectedPattern: ocrResponse.data?.detectedPattern,
+    });
+
+    if (ocrResponse.data?.success && ocrResponse.data?.isCounterfeit) {
+      console.log("✓ MAINAN text detected in image! Pattern:", ocrResponse.data?.detectedPattern);
+      return true;
+    }
+
+    return false;
+  } catch (error: any) {
+    if (error.name === "AbortError") {
+      console.log("Fast OCR: Timeout (25s) - continuing to Roboflow");
+    } else {
+      console.error("Fast OCR error:", error.message);
+    }
+    return false;
+  }
+}
+
 export async function createCashDetection(formData: FormData) {
   const session = await getServerSession(authOptions);
   if (!session || Number(session.user.role) !== 1) {
@@ -73,12 +165,46 @@ export async function createCashDetection(formData: FormData) {
     }
   });
 
-  // === Roboflow AI Detection ===
+  // === Fast OCR Detection (Sync dengan timeout) ===
+  console.log("Starting Fast OCR detection...");
+  const mainanDetected = await performFastOCRDetection(fileName);
+
+  if (mainanDetected) {
+    console.log("✓✓✓ MAINAN DETECTED! Rejecting payment immediately.");
+    
+    await prisma.cash_detections.update({
+      where: { id: detection.id },
+      data: {
+        statusDeteksi: DETEKSI_STATUS.PALSU,
+        skorDeteksi: 95,
+        catatan: "Uang Mainan (Terdeteksi Text 'MAINAN')",
+      },
+    });
+
+    if (transaksiIdValue) {
+      await prisma.transactions.update({
+        where: { id: transaksiIdValue },
+        data: { statusPemesanan: TRANSAKSI_STATUS.PEMBAYARAN_TIDAK_VALID },
+      });
+    }
+
+    revalidatePath("/dashboard/deteksi-uang-palsu");
+    revalidatePath("/dashboard/transactions");
+    return { 
+      success: true, 
+      message: "⚠️ UANG PALSU TERDETEKSI! Gambar mengandung tulisan 'MAINAN'. Pembayaran ditolak.",
+      aiStatus: "palsu"
+    };
+  } else {
+    console.log("✗ OCR did not detect MAINAN - proceeding to Roboflow");
+  }
+
+  // === Roboflow AI Detection (jika OCR timeout atau tidak detect MAINAN) ===
   let aiStatus: "asli" | "palsu" | "menunggu" = "menunggu";
   let aiMessage = "Data deteksi tersimpan. Menunggu verifikasi manual.";
   let finalStatus = DETEKSI_STATUS.MENUNGGU;
-  let aiConfidence = 0;     // 0–100 percentage
-  let aiLabel = "Tidak diketahui"; // class name from model
+  let aiConfidence = 0;
+  let aiLabel = "Tidak diketahui";
 
   try {
     const apiKey = process.env.ROBOFLOW_API_KEY;
@@ -111,8 +237,15 @@ export async function createCashDetection(formData: FormData) {
         aiConfidence = confidencePct;
         aiLabel = topPrediction.class ?? "Tidak diketahui";
 
-        // Threshold: confidence ≥60% → ASLI, <60% → PALSU
-        if (confidencePct >= 60) {
+        const labelLower = aiLabel.toLowerCase();
+        const labelSuggestsFake = labelLower.includes("palsu") || labelLower.includes("mainan");
+
+        // Label-based override: if model says palsu/mainan, force PALSU
+        if (labelSuggestsFake) {
+          finalStatus = DETEKSI_STATUS.PALSU;
+          aiStatus = "palsu";
+          aiMessage = `AI mendeteksi label "${aiLabel}" dengan keyakinan ${confidencePct}%. Pembayaran ditolak.`;
+        } else if (confidencePct >= 60) {
           finalStatus = DETEKSI_STATUS.ASLI;
           aiStatus = "asli";
           aiMessage = `AI mendeteksi uang ASLI dengan keyakinan ${confidencePct}%. Transaksi dapat dilanjutkan.`;
