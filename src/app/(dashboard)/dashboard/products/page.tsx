@@ -25,7 +25,7 @@ const getJenisLabel = (jenis: number) => {
 
 export default async function ProductsPage() {
   const session = await getServerSession(authOptions);
-  
+
   if (!session || session.user.role !== 1) {
     return (
       <div className="p-8 text-center text-red-500 font-bold">Akses Ditolak</div>
@@ -58,11 +58,11 @@ export default async function ProductsPage() {
             return (
               <div key={product.id.toString()} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 hover:shadow-lg transition-shadow group">
                 <div className="h-48 relative bg-slate-50 flex items-center justify-center p-4">
-                  <Image 
-                    src={jenis.img} 
-                    alt={product.namaProduk} 
-                    width={120} 
-                    height={120} 
+                  <Image
+                    src={jenis.img}
+                    alt={product.namaProduk}
+                    width={120}
+                    height={120}
                     className="object-contain group-hover:scale-110 transition-transform duration-500"
                   />
                   <span className={`absolute top-4 left-4 px-3 py-1 rounded-full text-xs font-bold border ${jenis.color}`}>
