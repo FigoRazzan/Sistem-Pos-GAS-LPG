@@ -127,6 +127,13 @@ Pastikan sudah terinstall di komputer kamu:
 
 ## 🚀 Setup dari Awal
 
+> 🐳 **PENTING — Nyalakan Docker terlebih dahulu!**  
+> Database PostgreSQL pada proyek ini berjalan di dalam **Docker container**.  
+> Pastikan **Docker Desktop** sudah terbuka dan berjalan sebelum menjalankan aplikasi.  
+> Kalau Docker belum nyala, aplikasi akan gagal konek ke database.
+>
+> Download Docker Desktop: https://www.docker.com/products/docker-desktop/
+
 ### Step 1 — Clone Repository
 
 ```bash
@@ -355,14 +362,15 @@ Jika belum ada, tambahkan manual atau restart dev server.
 
 ---
 
-### ❌ Error: `PrismaClientInitializationError`
+### ❌ Error: `PrismaClientInitializationError` / Gagal konek database
 
-**Penyebab**: `PrismaClient` tidak bisa terhubung ke database.
+**Penyebab 1 — Docker belum dibuka:**
+> Proyek ini menggunakan Docker untuk menjalankan PostgreSQL.  
+> Buka **Docker Desktop** terlebih dahulu, tunggu sampai statusnya **"Running"**, lalu jalankan ulang `npm run dev`.
 
-**Solusi**:
-1. Pastikan PostgreSQL sedang berjalan
-2. Cek `DATABASE_URL` di `.env` sudah benar
-3. Coba ping database: `psql -U postgres -d web_gas`
+**Penyebab 2 — Konfigurasi `.env` salah:**
+1. Cek `DATABASE_URL` di `.env` sudah benar
+2. Pastikan nama database, username, dan password sesuai
 
 ---
 
